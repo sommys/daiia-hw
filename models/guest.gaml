@@ -1,7 +1,7 @@
 /**
 * Name: guest
 * Description: Guest species for the homework project
-* Author: Andreas Nanoum, Soma Seres
+* Author: Andreas Naoum, Soma Seres
 */
 
 model guest

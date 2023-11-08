@@ -1,7 +1,7 @@
 /**
 * Name: global_species
 * Global species for the project 
-* Author: Andreas Nanoum, Soma Seres
+* Author: Andreas Naoum, Soma Seres
 */
 
 

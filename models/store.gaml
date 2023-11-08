@@ -1,7 +1,7 @@
 /**
 * Name: store
 * Store species for the homework 
-* Author: Andreas Nanoum, Soma Seres
+* Author: Andreas Naoum, Soma Seres
 */
 
 model store
