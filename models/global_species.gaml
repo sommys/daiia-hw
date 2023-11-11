@@ -8,17 +8,23 @@ model global_species
 import "guest.gaml"
 import "information_center.gaml"
 import "store.gaml"
+import "security_guard.gaml"
 
 global{
 	/**
 	 * Number of guests at the festival
 	 */
-	int num_guest <- 10;
+	int num_guest <- 20;
 	
 	/**
 	 * Number of stores at the festival
 	 */
-	int num_store <- 4;
+	int num_store <- 6;
+	
+	/**
+	 * Number of security guards at the festival
+	 */
+	int num_guards <- 1;
 	
 	/**
 	 * Threshold for distance when going to a target location
@@ -30,10 +36,17 @@ global{
 	 */
 	point infocenter_location <- nil;
 	
+	bool extra_small_brain <- true;
+	
+	bool extra_bad_behavior <- true;
+	
 	init{
 		create InformationCenter;
-		create Guest number:num_guest;
 		create Store number:num_store;
+		create Guest number:num_guest;
+		if (extra_bad_behavior){
+			create Guard number:num_guards;
+		}
 		ask InformationCenter{
 			infocenter_location <- self.location; //save the location of the InformationCenter inside the global variable
 		}
@@ -42,10 +55,11 @@ global{
 
 experiment myExperiment type:gui {
 	output {
-		display myDisplay {
-			species InformationCenter aspect: base;
-			species Guest aspect:base;
-			species Store aspect:base;
+			display myDisplay {
+				species InformationCenter aspect: base;
+				species Guest aspect:base;
+				species Store aspect:base;
+				species Guard aspect:base;
+			}	
 		}
-	}
 }
