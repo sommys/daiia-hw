@@ -19,6 +19,7 @@ global{
 	 */
 	float hunger_max <- 100.0;
 }
+
 /**
  * The species representing the guests of the festival.
  * It has the moving skill, so it can wander and move to the Information Center and Stores.
@@ -26,25 +27,25 @@ global{
 species Guest skills: [moving]{
 	/** 
 	 * Value that is responsible for decreasing the values for thirst.
-	 * It is randomly generated between 1 and 5 (everyone is different).
+	 * It is randomly generated between 0 and 1 (everyone is different).
 	 */
 	float thirst_step <- rnd(0.0, 1.0);
 	
 	/** 
 	 * Value that is responsible for decreasing the values for hunger.
-	 * It is randomly generated between 1 and 5 (everyone is different).
+	 * It is randomly generated between 0 and 1 (everyone is different).
 	 */
 	float hunger_step <- rnd(0.0, 1.0);
 	
 	/**
 	 * Threshold value for the thirst level, responsible for signaling the guest if they are thirsty.
-	 * It is randomly generated between 25 and 50 (everyone is different).
+	 * It is randomly generated between 10 and 20 (everyone is different).
 	 */
 	float thirst_threshold <- rnd(10.0, 20.0);
 	
 	/**
 	 * Threshold value for the hunger level, responsible for signaling the guest if they are hungry.
-	 * It is randomly generated between 25 and 50 (everyone is different).
+	 * It is randomly generated between 10 and 20 (everyone is different).
 	 */
 	float hunger_threshold <- rnd(10.0, 20.0);
 	
@@ -74,7 +75,7 @@ species Guest skills: [moving]{
 	 */
 	bool hungry <- false update: thirsty ? hungry : hunger_value < hunger_threshold;
 	
-	bool willBeKilled <- false;
+	bool shallBeRemoved <- false;
 	
 	/**
 	 * The store, where the current needs of the guest can be served.
@@ -90,7 +91,7 @@ species Guest skills: [moving]{
  	aspect base {
 		//By default they are green when everything is ok
 		color <- rgb("green");
-		if (willBeKilled) {
+		if (shallBeRemoved) { //In case the agent shall be removed from the festival, they turn purple
 			color <- rgb(128,0,128);
 		} else if(hungry and thirsty){ //In case they are both hungry and thirsty, they turn red
 			color <- rgb("red");
@@ -104,16 +105,16 @@ species Guest skills: [moving]{
 	}
 	
 	/**
-	 * When the Guest is neither hungry nor thirsty, he just wanders around having a good time.
+	 * When the Guest is neither hungry nor thirsty, or it has became upset (and shall be kicked) he just wanders around.
 	 */
-	reflex allGood when: (!thirsty and !hungry and !willBeKilled){
+	reflex allGood when: ((!thirsty and !hungry) or shallBeRemoved){
 		do wander;
 	}
 	
 	/**
 	 * When the Guest is hungry or thirsty and is away from Information Center and not walking towards a Store, it should move to the Information Center.
 	 */
-	reflex goToInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location >= distance_threshold and self.goal_store = nil and !willBeKilled){
+	reflex goToInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location >= distance_threshold and goal_store = nil and !shallBeRemoved){
 		if (empty(visited_stores)) {
 			do goto target: infocenter_location;
 		} else {
@@ -123,55 +124,40 @@ species Guest skills: [moving]{
 				do goto target: infocenter_location;
 			} else {
 				int random_store <- rnd(length(visited_stores)-1);
-				// write "Random: "+int(random_store)+" length: "+ length(visited_stores);
 				goal_store <- visited_stores[random_store];
 			} 
 		}	
 	}
 	
 	/**
-	 * When the Guest is hungry or thirsty and is at the Information Center, it asks the closest Store with the required services (food or drink) to fulfill its needs.
+	 * When the Guest is hungry or thirsty and is at the Information Center, it asks for a Store with the required services (food or drink) to fulfill its needs.
 	 */
-	reflex atInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location < distance_threshold and self.goal_store = nil and !willBeKilled){
-		
-		if extra_small_brain {
-			
-			if (empty(visited_stores)){
-				ask InformationCenter{
-					myself.goal_store <- self.closest_store_with_supply(myself, myself.location, myself.hungry, myself.thirsty);
-				}
-			} else {
-				ask InformationCenter{
-					myself.goal_store <- self.different_store_with_supply(myself, myself.visited_stores, myself.location, myself.hungry, myself.thirsty);
-				}
-			}
-			
-			if (goal_store=nil) {
-				willBeKilled <- true;
-				write "I will be dead soon";
-			} else {
-				add goal_store to: visited_stores;
-			}
-			
-		} else {
-			ask InformationCenter{
-				myself.goal_store <- self.closest_store_with_supply(myself, myself.location, myself.hungry, myself.thirsty);
-			}
+	reflex atInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location < distance_threshold and goal_store = nil and !shallBeRemoved){
+		ask InformationCenter{
+			myself.goal_store <- self.askForStore(myself, myself.hungry, myself.thirsty);
+		}
+		if (goal_store=nil) { //if the InformationCenter doesn't give the guest a store to go to, it makes a scene, and has to be removed from the festival
+			write name + ": What do you mean you don't give me a store?? This is unnacceptable!!!";
 		}
 	}
 	
 	/**
 	 * When the Guest is hungry or thirsty and knows the Store that is closest and can fulfill its needs, it should move towards that Store.
 	 */
-	reflex goToGoalStore when: ((thirsty or hungry) and self.goal_store != nil and self distance_to self.goal_store >= distance_threshold and !willBeKilled){
+	reflex goToGoalStore when: ((thirsty or hungry) and goal_store != nil and self distance_to goal_store >= distance_threshold){
 		do goto target: self.goal_store.location;
 	}
 	
 	/**
 	 * When the Guest is hungry or thirsty and at the Store that can fulfill its needs, it should buy the needed items.
 	 */
-	reflex buyStuff when: ((thirsty or hungry) and goal_store != nil and self distance_to goal_store < distance_threshold and !willBeKilled){
-		goal_store <- goal_store.buy(self);
+	reflex buyStuff when: ((thirsty or hungry) and goal_store != nil and self distance_to goal_store < distance_threshold){
+		Store a <- goal_store.buy(self);
+		//write name + ": " + goal_store;
+		if extra_small_brain and !(visited_stores contains goal_store) { //store the visited store if guest have small memory
+			add goal_store to: visited_stores;
+			//write name + ": " + visited_stores;
+		}
 		goal_store <- nil;
 	}
 	
@@ -179,16 +165,20 @@ species Guest skills: [moving]{
 	 * Action responsible for setting the hunger and thirst values based on the offered services of the Store and the current state of the Guest.
 	 */
 	action refill(bool food, bool drink){
-		if(food and hungry){
+		if (food and hungry) {
 			self.hunger_value <- hunger_max;
 		}
-		if(drink and thirsty){
+		if (drink and thirsty) {
 			self.thirst_value <- thirst_max;
 		}
 	}
 	
-	action please_die {
-		write "I am a bad guy and I got what I deserved. Goodbye!";
+	/**
+	 * Removes this Guest from the festival.
+	 */
+	action removeFromFestival {
+		write name + ": I am a bad guy and I got what I deserved. Goodbye!";
+		num_guest <- num_guest - 1;
 		do die;
 	}
 }

@@ -36,30 +36,47 @@ global{
 	 */
 	point infocenter_location <- nil;
 	
+	/**
+	 * Flag for turning the small brain of the guests on and off (Challenge 1)
+	 */
 	bool extra_small_brain <- true;
 	
+	/**
+	 * Flag for turning the bad behavior of guests on and off (Challenge 2)
+	 */
 	bool extra_bad_behavior <- true;
+	/**
+	 * Chance for triggering the bad behavior for the guests
+	 */
+ 	float bad_behavior_threshold <- 0.05;
 	
 	init{
 		create InformationCenter;
 		create Store number:num_store;
 		create Guest number:num_guest;
-		if (extra_bad_behavior){
-			create Guard number:num_guards;
+		if (extra_bad_behavior){ //only create guards if the bad behavior is turned on
+			create SecurityGuard number:num_guards;
 		}
 		ask InformationCenter{
 			infocenter_location <- self.location; //save the location of the InformationCenter inside the global variable
 		}
 	}
+	
+	/**
+	 * Stop the simulation if there are no guests at the festival
+	 */
+	reflex stop_simulation when: num_guest <= 0 {
+       do pause;
+    }
 }
 
-experiment myExperiment type:gui {
+experiment festivalExperiment type:gui {
 	output {
 			display myDisplay {
 				species InformationCenter aspect: base;
 				species Guest aspect:base;
 				species Store aspect:base;
-				species Guard aspect:base;
+				species SecurityGuard aspect:base;
 			}	
 		}
 }
