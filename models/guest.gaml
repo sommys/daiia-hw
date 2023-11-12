@@ -117,10 +117,8 @@ species Guest skills: [moving]{
 	reflex goToInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location >= distance_threshold and goal_store = nil and !shallBeRemoved){
 		if (empty(visited_stores)) {
 			do goto target: infocenter_location;
-		} else {
-			float ask_for_different <- rnd(0.0, 10.0);
-			
-			if (ask_for_different <= 9.0) {
+		} else {			
+			if (rnd(0.0, 1.0) <= 0.9) {
 				do goto target: infocenter_location;
 			} else {
 				int random_store <- rnd(length(visited_stores)-1);
@@ -153,10 +151,8 @@ species Guest skills: [moving]{
 	 */
 	reflex buyStuff when: ((thirsty or hungry) and goal_store != nil and self distance_to goal_store < distance_threshold){
 		Store a <- goal_store.buy(self);
-		//write name + ": " + goal_store;
 		if extra_small_brain and !(visited_stores contains goal_store) { //store the visited store if guest have small memory
 			add goal_store to: visited_stores;
-			//write name + ": " + visited_stores;
 		}
 		goal_store <- nil;
 	}

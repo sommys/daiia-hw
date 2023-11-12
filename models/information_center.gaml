@@ -84,7 +84,6 @@ species InformationCenter{
 	Store closestStore(Guest guest, bool needFood, bool needDrink){
 		Store satisfyingStore <- nil;
 		float min_diff <- #max_float;
-		
 		loop s over: Store{
 			//if the store has what the guest needs
 			if(isStoreConsiderable(s, needFood, needDrink, nil)){
@@ -96,7 +95,6 @@ species InformationCenter{
 				}
 			}
 		}
-		
 		return satisfyingStore;
 	}
 	
@@ -111,7 +109,6 @@ species InformationCenter{
 				return s;
 			}
 		}
-		
 		return closestStore(guest, needFood, needDrink);
 	}
 }
