@@ -48,7 +48,7 @@ species InformationCenter{
 	 * Action for giving a store for a guest with the requested parameters
 	 */
 	Store askForStore(Guest guest, bool needFood, bool needDrink){
-		//With a low chance (5%), the InformationCenter responds slowly to the Guest, which makes him upset, and triggers its bad behavior
+		//With a low chance, the InformationCenter responds slowly to the Guest, which makes him upset, and triggers its bad behavior
 		if (extra_bad_behavior and rnd(0.0, 1.0) <= bad_behavior_threshold){
 			//Record the guest as a bad guy and mark it as non-wanted person, and do not give him a store to go to.
 			add guest to: bad_guys;

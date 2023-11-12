@@ -75,15 +75,26 @@ species Guest skills: [moving]{
 	 */
 	bool hungry <- false update: thirsty ? hungry : hunger_value < hunger_threshold;
 	
-	bool shallBeRemoved <- false;
-	
 	/**
 	 * The store, where the current needs of the guest can be served.
 	 * If the guest does not need anything, it is nil.
 	 */
 	Store goal_store <- nil;
 	
+	/**
+	 * The list of already visited stores (if guests have small brain).
+	 */
 	list<Store> visited_stores <- [];
+	
+	/**
+	 * Flag to make sure we only try to go to a random already visited store once when the agent turns hungry/thirsty.
+	 */
+	bool triedRandomGeneration <- false;
+	
+	/**
+	 * Flag for marking the agent as a bad behavior guest, so it appears differently in the simulation.
+	 */
+	bool shallBeRemoved <- false;
 	
 	/**
 	 * The graphical representation of the Guest species.
@@ -115,16 +126,18 @@ species Guest skills: [moving]{
 	 * When the Guest is hungry or thirsty and is away from Information Center and not walking towards a Store, it should move to the Information Center.
 	 */
 	reflex goToInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location >= distance_threshold and goal_store = nil and !shallBeRemoved){
-		if (empty(visited_stores)) {
-			do goto target: infocenter_location;
-		} else {			
-			if (rnd(0.0, 1.0) <= 0.9) {
-				do goto target: infocenter_location;
-			} else {
-				int random_store <- rnd(length(visited_stores)-1);
-				goal_store <- visited_stores[random_store];
-			} 
-		}	
+		//Try randomly going to an already visited store only once
+		if(!triedRandomGeneration){
+			triedRandomGeneration <- true;
+			if(wantKnown()){ //if the agent wants to go to a known place, find an eligible one
+				goal_store <- eligibleKnown();
+				if(goal_store != nil){ //if we could find a store, return from this reflex, to prevent inneccessarily moving towards the information center
+					return;
+				}
+			}
+		}
+		
+		do goto target: infocenter_location;
 	}
 	
 	/**
@@ -150,11 +163,12 @@ species Guest skills: [moving]{
 	 * When the Guest is hungry or thirsty and at the Store that can fulfill its needs, it should buy the needed items.
 	 */
 	reflex buyStuff when: ((thirsty or hungry) and goal_store != nil and self distance_to goal_store < distance_threshold){
-		Store a <- goal_store.buy(self);
+		Store _ <- goal_store.buy(self);
 		if extra_small_brain and !(visited_stores contains goal_store) { //store the visited store if guest have small memory
 			add goal_store to: visited_stores;
 		}
 		goal_store <- nil;
+		triedRandomGeneration <- false;
 	}
 	
 	/**
@@ -167,6 +181,26 @@ species Guest skills: [moving]{
 		if (drink and thirsty) {
 			self.thirst_value <- thirst_max;
 		}
+	}
+	
+	/**
+	 * Helper method for determining if the agent wants an already visited store.
+	 */
+	bool wantKnown{
+		return !empty(visited_stores) and rnd(0.0, 1.0) < known_threshold;
+	}
+	
+	/**
+	 * Helper method for finding an eligible store that the guest already visited and has the required services.
+	 */
+	Store eligibleKnown{
+		loop s over: shuffle(visited_stores){ //randomize order and look through all visited stores
+			//select the one with the required needs
+			if((hungry and thirsty and s.hasFood and s.hasDrink) or (hungry and !thirsty and s.hasFood) or (!hungry and thirsty and s.hasDrink)){
+				return s;
+			}
+		}
+		return nil;
 	}
 	
 	/**

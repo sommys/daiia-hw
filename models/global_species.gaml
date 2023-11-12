@@ -14,12 +14,12 @@ global{
 	/**
 	 * Number of guests at the festival
 	 */
-	int num_guest <- 20;
+	int num_guest <- 10;
 	
 	/**
 	 * Number of stores at the festival
 	 */
-	int num_store <- 6;
+	int num_store <- 4;
 	
 	/**
 	 * Number of security guards at the festival
@@ -42,9 +42,15 @@ global{
 	bool extra_small_brain <- true;
 	
 	/**
+	 * Chance for visiting a known store instead of a new one if guests have small brain.
+	 */
+	float known_threshold <- 0.75;
+	
+	/**
 	 * Flag for turning the bad behavior of guests on and off (Challenge 2)
 	 */
 	bool extra_bad_behavior <- true;
+	
 	/**
 	 * Chance for triggering the bad behavior for the guests
 	 */
@@ -77,6 +83,6 @@ experiment festivalExperiment type:gui {
 				species Guest aspect:base;
 				species Store aspect:base;
 				species SecurityGuard aspect:base;
-			}	
+			}
 		}
 }
