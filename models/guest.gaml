@@ -97,6 +97,11 @@ species Guest skills: [moving]{
 	bool shallBeRemoved <- false;
 	
 	/**
+	 * Helper flag for distance measurements
+	 */
+	bool goingToInfoCenter <- false;
+	
+	/**
 	 * The graphical representation of the Guest species.
 	 */
  	aspect base {
@@ -132,9 +137,16 @@ species Guest skills: [moving]{
 			if(wantKnown()){ //if the agent wants to go to a known place, find an eligible one
 				goal_store <- eligibleKnown();
 				if(goal_store != nil){ //if we could find a store, return from this reflex, to prevent inneccessarily moving towards the information center
+					//measure the distance to take to the store from the location where the agent turned hungry/thirsty
+					totalDistanceTraveled <- totalDistanceTraveled + self distance_to goal_store;
 					return;
 				}
 			}
+		}
+		//measure the distance to take to the infocenter from the location where the agent turned hungry/thirsty
+		if (!goingToInfoCenter){
+			goingToInfoCenter <- true;
+			totalDistanceTraveled <- totalDistanceTraveled + self distance_to infocenter_location;
 		}
 		
 		do goto target: infocenter_location;
@@ -144,11 +156,15 @@ species Guest skills: [moving]{
 	 * When the Guest is hungry or thirsty and is at the Information Center, it asks for a Store with the required services (food or drink) to fulfill its needs.
 	 */
 	reflex atInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location < distance_threshold and goal_store = nil and !shallBeRemoved){
+		goingToInfoCenter <- false;
 		ask InformationCenter{
 			myself.goal_store <- self.askForStore(myself, myself.hungry, myself.thirsty);
 		}
 		if (goal_store=nil) { //if the InformationCenter doesn't give the guest a store to go to, it makes a scene, and has to be removed from the festival
 			write name + ": What do you mean you don't give me a store?? This is unnacceptable!!!";
+		}  else {
+			//measure the distance to take to the store from the location where the agent turned hungry/thirsty
+			totalDistanceTraveled <- totalDistanceTraveled + self distance_to goal_store;
 		}
 	}
 	

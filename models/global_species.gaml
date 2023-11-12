@@ -11,6 +11,8 @@ import "store.gaml"
 import "security_guard.gaml"
 
 global{
+	//make sure the shape is a 200x200 rectangle for same results over experiments
+	geometry shape <- polygon ([{0.0,200.0,0.0},{200.0,200.0,0.0},{200.0,0.0,0.0},{0.0,0.0,0.0},{0.0,200.0,0.0}]);
 	/**
 	 * Number of guests at the festival
 	 */
@@ -49,21 +51,49 @@ global{
 	/**
 	 * Flag for turning the bad behavior of guests on and off (Challenge 2)
 	 */
-	bool extra_bad_behavior <- true;
+	bool extra_bad_behavior <- false;
 	
 	/**
 	 * Chance for triggering the bad behavior for the guests
 	 */
  	float bad_behavior_threshold <- 0.05;
 	
+	/**
+ 	 * Tracker for total distance traveled by the guests
+ 	 */
+ 	float totalDistanceTraveled <- 0.0;
+	
 	init{
 		create InformationCenter;
 		create Store number:num_store;
+		//layout stores in a 100x100 rectangle
+		int i <- 0;
+		loop s over: Store{
+			if(i = 0){
+				s.hasFood <- false;
+				s.hasDrink <- false;
+				s.location <- point({50.0, 50.0});
+			} else if(i = 1){
+				s.hasFood <- true;
+				s.hasDrink <- false;
+				s.location <- point({50.0, 150.0});
+			} else if(i = 2){
+				s.hasFood <- false;
+				s.hasDrink <- true;
+				s.location <- point({150.0, 50.0});
+			} else {
+				s.hasFood <- true;
+				s.hasDrink <- true;
+				s.location <- point({150.0, 150.0});
+			}
+			i <- i+1;
+		}
 		create Guest number:num_guest;
 		if (extra_bad_behavior){ //only create guards if the bad behavior is turned on
 			create SecurityGuard number:num_guards;
 		}
 		ask InformationCenter{
+			self.location <- point({100.0, 100.0}); //make sure the InformationCenter is in the middle
 			infocenter_location <- self.location; //save the location of the InformationCenter inside the global variable
 		}
 	}
@@ -84,5 +114,6 @@ experiment festivalExperiment type:gui {
 				species Store aspect:base;
 				species SecurityGuard aspect:base;
 			}
+			monitor "Avg Traveled Distance" value: totalDistanceTraveled / num_guest; //measure avg distance by guests
 		}
 }
