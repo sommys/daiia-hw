@@ -24,7 +24,7 @@ global{
  * The species representing the guests of the festival.
  * It has the moving skill, so it can wander and move to the Information Center and Stores.
  */
-species Guest skills: [moving]{
+species Guest skills: [moving, fipa]{
 	/** 
 	 * Value that is responsible for decreasing the values for thirst.
 	 * It is randomly generated between 0 and 1 (everyone is different).
@@ -97,6 +97,21 @@ species Guest skills: [moving]{
 	bool shallBeRemoved <- false;
 	
 	/**
+	 * The location of the auction that the guest wants to take part in.
+	 */
+	point auctionLocation <- nil;
+	
+	/**
+	 * The maximum price for the current auction the guest is willing to pay.
+	 */
+	int maxPrice <- 0;
+	
+	/**
+	 * The preferred item for the guest, the only item it is willing to pay for.
+	 */
+	string preferredItem <- one_of(possibleItems);
+	
+	/**
 	 * The graphical representation of the Guest species.
 	 */
  	aspect base {
@@ -118,14 +133,62 @@ species Guest skills: [moving]{
 	/**
 	 * When the Guest is neither hungry nor thirsty, or it has became upset (and shall be kicked) he just wanders around.
 	 */
-	reflex allGood when: ((!thirsty and !hungry) or shallBeRemoved){
+	reflex allGood when: auctionLocation = nil and ((!thirsty and !hungry) or shallBeRemoved){
 		do wander;
+	}
+	
+	/**
+	 * Whenever the guest has a message in the cfps list, process it and act accordingly
+	 * Start -> saves the location and sets their maximum price
+	 * Stop -> they leave the location
+	 * Win -> they say that they have won
+	 */
+	reflex auctionInfo when: (!empty(cfps)){
+		message msg <- cfps at 0;
+		if msg.contents[0] = 'Start' {
+			if(!extra_multi_items){
+				auctionLocation <- msg.contents[1];
+				maxPrice <- round(int(msg.contents[2]) * rnd(0.5, 0.8));
+				return;
+			}
+			string response <- "Not interested";
+			if(msg.contents[3] = preferredItem){
+				auctionLocation <- msg.contents[1];
+				maxPrice <- round(int(msg.contents[2]) * rnd(0.5, 0.8));
+				response <- "Interested";
+			}
+			do start_conversation (to: msg.sender, protocol: 'fipa-propose', performative: 'cfp', contents: [response]);
+		} else if(msg.contents[0] = 'Stop' and (!extra_multi_items or msg.contents[1] = preferredItem)) {
+			auctionLocation <- nil;
+		} else if(msg.contents[0] = 'Winner'){
+			write "[" + name + "]: I won!!";
+		}
+	}
+	
+	/**
+	 * Whenever there is an auction the guest is interested in, and is not near the auction, go towards it
+	 */
+	reflex goToAuction when: auctionLocation != nil and location distance_to(auctionLocation) > distance_threshold{
+		do goto target:auctionLocation;
+	}
+	
+	/**
+	 * Replying to the proposals of the auctioneer for the Dutch auction
+	 */
+	reflex replyDutch when: auctionLocation != nil and !empty(proposes){
+		message proposal <- proposes at 0;
+		int currentPrice <- int(proposal.contents[0]);
+		if(currentPrice >= maxPrice){
+			do reject_proposal (message: proposal, contents: ["Rejected"]);
+		} else {
+			do accept_proposal (message: proposal, contents: ["Accepted"]);
+		}
 	}
 	
 	/**
 	 * When the Guest is hungry or thirsty and is away from Information Center and not walking towards a Store, it should move to the Information Center.
 	 */
-	reflex goToInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location >= distance_threshold and goal_store = nil and !shallBeRemoved){
+	reflex goToInfoCenter when: auctionLocation = nil and ((thirsty or hungry) and self distance_to infocenter_location >= distance_threshold and goal_store = nil and !shallBeRemoved){
 		//Try randomly going to an already visited store only once
 		if(!triedRandomGeneration){
 			triedRandomGeneration <- true;
@@ -143,7 +206,7 @@ species Guest skills: [moving]{
 	/**
 	 * When the Guest is hungry or thirsty and is at the Information Center, it asks for a Store with the required services (food or drink) to fulfill its needs.
 	 */
-	reflex atInfoCenter when: ((thirsty or hungry) and self distance_to infocenter_location < distance_threshold and goal_store = nil and !shallBeRemoved){
+	reflex atInfoCenter when: auctionLocation = nil and ((thirsty or hungry) and self distance_to infocenter_location < distance_threshold and goal_store = nil and !shallBeRemoved){
 		ask InformationCenter{
 			myself.goal_store <- self.askForStore(myself, myself.hungry, myself.thirsty);
 		}
@@ -155,14 +218,14 @@ species Guest skills: [moving]{
 	/**
 	 * When the Guest is hungry or thirsty and knows the Store that is closest and can fulfill its needs, it should move towards that Store.
 	 */
-	reflex goToGoalStore when: ((thirsty or hungry) and goal_store != nil and self distance_to goal_store >= distance_threshold){
+	reflex goToGoalStore when: auctionLocation = nil and ((thirsty or hungry) and goal_store != nil and self distance_to goal_store >= distance_threshold){
 		do goto target: self.goal_store.location;
 	}
 	
 	/**
 	 * When the Guest is hungry or thirsty and at the Store that can fulfill its needs, it should buy the needed items.
 	 */
-	reflex buyStuff when: ((thirsty or hungry) and goal_store != nil and self distance_to goal_store < distance_threshold){
+	reflex buyStuff when: auctionLocation = nil and ((thirsty or hungry) and goal_store != nil and self distance_to goal_store < distance_threshold){
 		Store _ <- goal_store.buy(self);
 		if extra_small_brain and !(visited_stores contains goal_store) { //store the visited store if guest have small memory
 			add goal_store to: visited_stores;

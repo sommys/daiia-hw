@@ -9,12 +9,13 @@ import "guest.gaml"
 import "information_center.gaml"
 import "store.gaml"
 import "security_guard.gaml"
+import "auctioneer.gaml"
 
 global{
 	/**
 	 * Number of guests at the festival
 	 */
-	int num_guest <- 10;
+	int num_guest <- 3;
 	
 	/**
 	 * Number of stores at the festival
@@ -37,9 +38,9 @@ global{
 	point infocenter_location <- nil;
 	
 	/**
-	 * Flag for turning the small brain of the guests on and off (Challenge 1)
+	 * Flag for turning the small brain of the guests on and off (Homework1, Challenge 1)
 	 */
-	bool extra_small_brain <- true;
+	bool extra_small_brain <- false;
 	
 	/**
 	 * Chance for visiting a known store instead of a new one if guests have small brain.
@@ -47,9 +48,9 @@ global{
 	float known_threshold <- 0.75;
 	
 	/**
-	 * Flag for turning the bad behavior of guests on and off (Challenge 2)
+	 * Flag for turning the bad behavior of guests on and off (Homework1, Challenge 2)
 	 */
-	bool extra_bad_behavior <- true;
+	bool extra_bad_behavior <- false;
 	
 	/**
 	 * Chance for triggering the bad behavior for the guests
@@ -83,6 +84,7 @@ experiment festivalExperiment type:gui {
 				species Guest aspect:base;
 				species Store aspect:base;
 				species SecurityGuard aspect:base;
+				species Auctioneer aspect:base;
 			}
 		}
 }
