@@ -22,7 +22,7 @@ global{
 	/**
 	 * Flag for turning the multiple items for auctions on and off (Homework2, Challenge 1)
 	 */
-	bool extra_multi_items <- false;
+	bool extra_multi_items <- true;
 	
 	/**
 	 * Possible items for sale at the festival on auctions
@@ -64,7 +64,7 @@ species Auctioneer skills:[fipa]{
 	int processed <- 0;
 	
 	action startAuction{
-		write "["+name+"]: Hey dear guests! Auction starting for " + sellingItem + " soon at (" + int(location.x) + ";" + int(location.y) + ")!";
+		write "["+name+"]: Hey dear guests! Auction starting " + (extra_multi_items ? ("for " + sellingItem) : "") + " soon at (" + int(location.x) + ";" + int(location.y) + ")!";
 		do start_conversation (to: list(Guest), protocol: 'fipa-propose', performative: 'cfp', contents: ["Start", location, currentPrice, sellingItem]);
 		if(!extra_multi_items){
 			interestedGuests <- list(Guest);
@@ -93,7 +93,7 @@ species Auctioneer skills:[fipa]{
 	reflex canStartAuction when: !auctionRunning and (!extra_multi_items or processed = num_guest) and length(interestedGuests) > 0 and interestedGuests max_of (location distance_to(each.location)) < distance_threshold{
 		auctionRunning <- true;
 		write "[" + name + "]: Starting with proposal " + currentPrice;
-		do start_conversation (to: list(Guest), protocol: 'fipa-propose', performative: 'propose', contents: [currentPrice]);
+		do start_conversation (to: interestedGuests, protocol: 'fipa-propose', performative: 'propose', contents: [currentPrice]);
 	}
 	
 	reflex receiveRejections when: auctionRunning and !empty(reject_proposals){
@@ -103,7 +103,7 @@ species Auctioneer skills:[fipa]{
 			do stopAuction;
 		} else {
 			write "[" + name + "]: The guests rejected it, sending proposal " + currentPrice;
-			do start_conversation (to: list(Guest), protocol: 'fipa-propose', performative: 'propose', contents: [currentPrice]);
+			do start_conversation (to: interestedGuests, protocol: 'fipa-propose', performative: 'propose', contents: [currentPrice]);
 		}
 	}
 	
