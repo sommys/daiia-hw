@@ -106,10 +106,19 @@ species Guest skills: [moving, fipa]{
 	 */
 	int maxPrice <- 0;
 	
+	int bid_threshold <- 0;
+	
 	/**
 	 * The preferred item for the guest, the only item it is willing to pay for.
 	 */
 	string preferredItem <- one_of(possibleItems);
+	
+	// Auction Types
+	// 0 <- Dutch 
+	// 1 <- English 
+	// 2 <- Sealed-Bid 
+	// 3 <- Vickrey 
+	string auctionType <- "";
 	
 	/**
 	 * The graphical representation of the Guest species.
@@ -145,22 +154,40 @@ species Guest skills: [moving, fipa]{
 	 */
 	reflex auctionInfo when: (!empty(cfps)){
 		message msg <- cfps at 0;
-		if msg.contents[0] = 'Start' {
+		string title <- msg.contents[0];
+		
+		// Start
+		if title = 'Start' {
 			if(!extra_multi_items){
 				auctionLocation <- msg.contents[1];
-				maxPrice <- round(int(msg.contents[2]) * rnd(0.5, 0.8));
+				int sellingPrice <- int(msg.contents[2]);
+				maxPrice <- round(sellingPrice * rnd(0.5, 0.8));
 				return;
 			}
+			
+			auctionType <- msg.contents[1];
+			string item <- msg.contents[4];
+			
 			string response <- "Not interested";
-			if(msg.contents[3] = preferredItem){
-				auctionLocation <- msg.contents[1];
-				maxPrice <- round(int(msg.contents[2]) * rnd(0.5, 0.8));
+			if(item = preferredItem){
+				auctionLocation <- msg.contents[2];
+				int sellingPrice <- int(msg.contents[3]);
+				if (auctionType="Dutch" ){
+					maxPrice <- round(sellingPrice * rnd(0.5, 0.8));
+				} 
+				else if (auctionType="English") {
+					maxPrice <- sellingPrice + round(sellingPrice * rnd(0.5, 0.8));	
+				}
 				response <- "Interested";
 			}
 			do start_conversation (to: msg.sender, protocol: 'fipa-propose', performative: 'cfp', contents: [response]);
-		} else if(msg.contents[0] = 'Stop' and (!extra_multi_items or msg.contents[1] = preferredItem)) {
+		} 
+		// Stop 
+		else if(title = 'Stop' and (!extra_multi_items or msg.contents[1] = preferredItem)) {
 			auctionLocation <- nil;
-		} else if(msg.contents[0] = 'Winner'){
+		} 
+		// Win
+		else if(title = 'Winner'){
 			write "[" + name + "]: I won!!";
 		}
 	}
@@ -175,13 +202,58 @@ species Guest skills: [moving, fipa]{
 	/**
 	 * Replying to the proposals of the auctioneer for the Dutch auction
 	 */
-	reflex replyDutch when: auctionLocation != nil and !empty(proposes){
+	reflex replyPropose when: auctionLocation != nil and !empty(proposes){
 		message proposal <- proposes at 0;
-		int currentPrice <- int(proposal.contents[0]);
-		if(currentPrice >= maxPrice){
-			do reject_proposal (message: proposal, contents: ["Rejected"]);
-		} else {
-			do accept_proposal (message: proposal, contents: ["Accepted"]);
+		// Dutch
+		if (auctionType="Dutch"){
+			int currentPrice <- int(proposal.contents[0]);
+			if(currentPrice >= maxPrice){
+				do reject_proposal (message: proposal, contents: ["Rejected"]);
+			} else {
+				do accept_proposal (message: proposal, contents: ["Accepted"]);
+			}
+		}
+		// English 
+		else if (auctionType="English"){
+			int currentPrice <- int(proposal.contents[0]);
+			
+			bool bid_decision <- false;
+			
+			// Based on randmoness, a threshold is used and it's increased every round
+			bid_threshold <- bid_threshold + rnd(1,10);
+			int bid_random <- rnd(1, 100);
+			
+			// Re-evaluate based on randmoness
+			int reevaluate_random <- rnd(1, 100);
+			if (reevaluate_random > 85){
+				maxPrice <- round(currentPrice * rnd(1.1, 1.5));
+			}
+			
+			// Decide if you want to bit
+			if (currentPrice <= maxPrice and bid_random > bid_threshold){
+				bid_decision <- true;	
+			}
+
+			
+			if(bid_decision){
+				int bid_price <- round(currentPrice * rnd(1.05,1.5));
+				do accept_proposal (message: proposal, contents: [bid_price]);
+			} else {
+				do reject_proposal (message: proposal, contents: ["Rejected"]);
+			}
+			
+		}
+		// Sealed-Bid
+		else if (auctionType="Sealed-Bid"){
+			int currentPrice <- int(proposal.contents[0]);
+			int bid_price <- round(currentPrice * rnd(0.7,0.95));
+			do accept_proposal (message: proposal, contents: [bid_price]);
+		}
+		// Vickey
+		else {
+			int currentPrice <- int(proposal.contents[0]);
+			int bid_price <- round(currentPrice * rnd(0.8,1.2));
+			do accept_proposal (message: proposal, contents: [bid_price]);
 		}
 	}
 	
