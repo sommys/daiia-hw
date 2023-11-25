@@ -23,6 +23,7 @@ global{
 /**
  * The species representing the guests of the festival.
  * It has the moving skill, so it can wander and move to the Information Center and Stores.
+ * It has the fipa skill, so it can send the auctioneer responses about taking part in the auctions and communicate during the auction.
  */
 species Guest skills: [moving, fipa]{
 	/** 
@@ -106,6 +107,9 @@ species Guest skills: [moving, fipa]{
 	 */
 	int maxPrice <- 0;
 	
+	/**
+	 * The chance threshold for the guest to bid in an English auction
+	 */
 	int bid_threshold <- 0;
 	
 	/**
@@ -113,11 +117,9 @@ species Guest skills: [moving, fipa]{
 	 */
 	string preferredItem <- one_of(possibleItems);
 	
-	// Auction Types
-	// 0 <- Dutch 
-	// 1 <- English 
-	// 2 <- Sealed-Bid 
-	// 3 <- Vickrey 
+	/**
+	 * The currently running auction's type (Dutch/English/Sealed-Bid/Vickrey)
+	 */
 	string auctionType <- "";
 	
 	/**
@@ -153,42 +155,60 @@ species Guest skills: [moving, fipa]{
 	 * Win -> they say that they have won
 	 */
 	reflex auctionInfo when: (!empty(cfps)){
+		//Get the most recent message
 		message msg <- cfps at 0;
-		string title <- msg.contents[0];
-		
-		// Start
-		if title = 'Start' {
-			if(!extra_multi_items){
-				auctionLocation <- msg.contents[1];
-				int sellingPrice <- int(msg.contents[2]);
-				maxPrice <- round(sellingPrice * rnd(0.5, 0.8));
-				return;
-			}
-			
+		//Get the subject of the message
+		string subject <- msg.contents[0];
+		if (subject = "Start") {
+			//Get the auction type
 			auctionType <- msg.contents[1];
-			string item <- msg.contents[4];
-			
-			string response <- "Not interested";
-			if(item = preferredItem){
+			//If we don't have multiple items, do not care about the sold item
+			if(!extra_multi_items){
+				//Save the location of the auction to navigate there
 				auctionLocation <- msg.contents[2];
+				//Calculate maxPrice if necessary for the current auction type
 				int sellingPrice <- int(msg.contents[3]);
-				if (auctionType="Dutch" ){
+				if (auctionType="Dutch"){
 					maxPrice <- round(sellingPrice * rnd(0.5, 0.8));
 				} 
 				else if (auctionType="English") {
-					maxPrice <- sellingPrice + round(sellingPrice * rnd(0.5, 0.8));	
+					maxPrice <- round(sellingPrice * rnd(1.5, 1.8));	
+				} else if (auctionType="Sealed-Bid") {
+					maxPrice <- round(sellingPrice * 1.25);
+				} else if (auctionType="Vickrey") {
+					maxPrice <- round(sellingPrice * 1.5);
+				}
+				return;
+			}
+			//If we have multiple items, get the item
+			string item <- msg.contents[4];
+			
+			string response <- "Not interested";
+			//Only care about our preferred item's auction
+			if(item = preferredItem){
+				//Save location and calculate maxPrice if needed
+				auctionLocation <- msg.contents[2];
+				int sellingPrice <- int(msg.contents[3]);
+				if (auctionType="Dutch"){
+					maxPrice <- round(sellingPrice * rnd(0.5, 0.8));
+				} 
+				else if (auctionType="English") {
+					maxPrice <- round(sellingPrice * rnd(1.5, 1.8));	
 				}
 				response <- "Interested";
 			}
+			//Respond to the auctioneer with the appropriate answer (Interested/Not interested) for the auction
 			do start_conversation (to: msg.sender, protocol: 'fipa-propose', performative: 'cfp', contents: [response]);
-		} 
-		// Stop 
-		else if(title = 'Stop' and (!extra_multi_items or msg.contents[1] = preferredItem)) {
+		}
+		//Only handle stop if it is about our interested auction in case of multi-items available.
+		else if(subject = "Stop" and (!extra_multi_items or msg.contents[1] = preferredItem)) {
+			//Note the end of the auction by setting the auctionLocation to nil, so the guest can continue having fun.
 			auctionLocation <- nil;
-		} 
-		// Win
-		else if(title = 'Winner'){
+		}
+		else if(subject = "Winner"){
 			write "[" + name + "]: I won!!";
+			int gain <- maxPrice - int(msg.contents[1]);
+			write "[" + name + "]: Gained value for me: " + gain;
 		}
 	}
 	
@@ -200,59 +220,43 @@ species Guest skills: [moving, fipa]{
 	}
 	
 	/**
-	 * Replying to the proposals of the auctioneer for the Dutch auction
+	 * Replying to the proposals of the auctioneer for currently running auction
 	 */
 	reflex replyPropose when: auctionLocation != nil and !empty(proposes){
+		//Get the most recent proposal
 		message proposal <- proposes at 0;
-		// Dutch
+		int currentPrice <- int(proposal.contents[0]);
 		if (auctionType="Dutch"){
-			int currentPrice <- int(proposal.contents[0]);
+			//Check if the current price is acceptable for us or not yet, and reject/accept based on the current value
 			if(currentPrice >= maxPrice){
 				do reject_proposal (message: proposal, contents: ["Rejected"]);
 			} else {
 				do accept_proposal (message: proposal, contents: ["Accepted"]);
 			}
 		}
-		// English 
 		else if (auctionType="English"){
-			int currentPrice <- int(proposal.contents[0]);
-			
-			bool bid_decision <- false;
+			//Get the current highest bid and increase it by 5-15%
+			int bid_price <- round(currentPrice * rnd(1.05,1.15));
 			
 			// Based on randmoness, a threshold is used and it's increased every round
 			bid_threshold <- bid_threshold + rnd(1,10);
 			int bid_random <- rnd(1, 100);
 			
-			// Re-evaluate based on randmoness
-			int reevaluate_random <- rnd(1, 100);
-			if (reevaluate_random > 85){
-				maxPrice <- round(currentPrice * rnd(1.1, 1.5));
-			}
-			
-			// Decide if you want to bit
-			if (currentPrice <= maxPrice and bid_random > bid_threshold){
-				bid_decision <- true;	
-			}
-
-			
-			if(bid_decision){
-				int bid_price <- round(currentPrice * rnd(1.05,1.5));
+			// Decide if we want to bid based on the current proposal and the randomness
+			if (bid_price <= maxPrice and bid_random > bid_threshold){
 				do accept_proposal (message: proposal, contents: [bid_price]);
 			} else {
 				do reject_proposal (message: proposal, contents: ["Rejected"]);
-			}
-			
+			}			
 		}
-		// Sealed-Bid
 		else if (auctionType="Sealed-Bid"){
-			int currentPrice <- int(proposal.contents[0]);
-			int bid_price <- round(currentPrice * rnd(0.7,0.95));
+			//Generate bid and send it as our proposal
+			int bid_price <- round(currentPrice * rnd(1.05,1.25));
 			do accept_proposal (message: proposal, contents: [bid_price]);
 		}
-		// Vickey
-		else {
-			int currentPrice <- int(proposal.contents[0]);
-			int bid_price <- round(currentPrice * rnd(0.8,1.2));
+		else if (auctionType="Vickrey"){
+			//Generate bid and send it as our proposal
+			int bid_price <- round(currentPrice * rnd(1.05,1.5));
 			do accept_proposal (message: proposal, contents: [bid_price]);
 		}
 	}
