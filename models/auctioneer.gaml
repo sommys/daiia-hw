@@ -62,7 +62,7 @@ species Auctioneer skills:[fipa]{
 	 * 2 <- 5000
 	 * 3 <- 100000
 	 */
-	int test_scenario <- 3;
+	int test_scenario <- 0;
 	
 	/**
 	 * Auction Types
@@ -71,7 +71,7 @@ species Auctioneer skills:[fipa]{
 	 * 2 <- Sealed-Bid 
 	 * 3 <- Vickrey 
 	 */
-	int auctionType <- 3;
+	int auctionType <- 0;
 	
 	/**
 	 * Flag for keeping track of the state of the auction (running/not)
