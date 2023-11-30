@@ -16,7 +16,7 @@ species Guest skills:[moving, fipa]{
 	
 	init{
 		loop a over: concert_attribs{
-			add rnd(0.1, 1.5) at: a to: weights;
+			add rnd(0.5, 1.5) at: a to: weights;
 		}
 		write name + ": My preferences (weights): " + weights;
 	}
@@ -30,9 +30,9 @@ species Guest skills:[moving, fipa]{
 	}
 	
 	float utility(map<string, float> infos){
-		float util <- 1.0;
+		float util <- 0.0;
 		loop a over: concert_attribs{
-			util <- util * weights[a] * infos[a];
+			util <- util + weights[a] * infos[a];
 		}
 		return util;
 	}
@@ -56,7 +56,6 @@ species Guest skills:[moving, fipa]{
 				highestUtility <- utility;
 				preferredStage <- stageInfoMsg.sender;
 			}
-			do end_conversation message:stageInfoMsg contents: ['Thanks'];
 		}
 		canGo <- true;
 		write name + ": I'm going to " + preferredStage + "(utility: " + highestUtility + ")";
