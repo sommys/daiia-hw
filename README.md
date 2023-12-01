@@ -1,5 +1,8 @@
 # Homework Assignments for ID2209 Distributed Artificial Intelligence and Intelligent Agents course for the 2023 Fall semester
 
+## Platform
+For all the assignments [GAMA 1.9.2](https://github.com/gama-platform/gama/releases/tag/1.9.2) was used.
+
 ## Assignment1
 Festival simulation where guests get hungry or thirsty. If they do, they should go to the Information Center to ask for the nearest store that gives them what they need. Afterward, the guests should simply keep doing something until they get hungry/thirsty again.
 ### Challenge1
