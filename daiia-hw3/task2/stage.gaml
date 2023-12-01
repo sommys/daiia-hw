@@ -27,8 +27,8 @@ species Stage skills:[fipa]{
 	}
 	
 	action setConcertAttributes{
-		loop a over: concert_attribs{
-			add rnd(0.1, 5.0) at: a to: attribs; 
+		loop a over: concert_attribs {
+			add rnd(0.5, 1.0) at: a to: attribs; 
 		}
 	}
 	
