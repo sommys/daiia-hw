@@ -20,12 +20,6 @@ species Stage skills:[fipa]{
 	int phase <- 0;
 	int time_counter <- 0;
 	
-	init{
-		loop a over: concert_attribs{
-			add 0.0 at: a to: attribs;
-		}
-	}
-	
 	action setConcertAttributes{
 		loop a over: concert_attribs {
 			add rnd(0.5, 1.0) at: a to: attribs; 

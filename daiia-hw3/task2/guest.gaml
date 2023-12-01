@@ -35,7 +35,6 @@ species Guest skills:[moving, fipa]{
 	
 	init{
 		loop a over: concert_attribs {
-			// add rnd(0.5, 1.5) at: a to: weights;
 			add rnd(0.5, 1.5) at: a to: weights;
 		}
 		if (name = "Guest0"){
