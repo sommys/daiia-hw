@@ -17,7 +17,7 @@ global skills:[fipa]{
 	/**
 	 * Number of queens and size of the table
 	 */
-	int N <- 6;
+	int N <- 14;
 	/**
 	 * Flag for stopping the simulation once a solution is found
 	 */
@@ -29,7 +29,7 @@ global skills:[fipa]{
 		 */
 		loop i from: 0 to: N-1 {
         	create Queen{
-        		do setId _id: i;
+        		do setCol _col: i;
         	}
         }
         /**
