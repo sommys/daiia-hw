@@ -9,150 +9,217 @@ model guest
 import "global_species.gaml"
 
 species Guest skills:[moving, fipa]{
+	
+	
 	Stage preferredStage <- nil;
 	bool canGo <- false;
-	
-	float rnd_want_crowd <- rnd(0.0, 1.0);
-	
-	bool leader_flag <- false;
-	
-	bool decision_taken <- false;
-	bool inform_leader <- false;
-	
-	bool ask_him_to_leave <- false;
-	int proposed_times <- 0;
-	Stage before <- nil;
-	float before_value <- 0.0;
-	
-	int guests_informs_count <- 0;
-	
 	map<string, float> weights <- [];
 	
+	
+	
+	// -------- Variables for Challenge --------
+	
+	// 10% changes to not want crowd
+	float rnd_want_crowd <- rnd(0.0, 1.0);
+	
+	// Flag if guest does not like crowd
+	bool do_not_prefer_crowd <- false ;
+	
+	// Flag to indetify the leader
+	bool leader_flag <- false;
+	
+	// When all guests informed leader, the leader can then decide where they should go
+	bool leader_must_decide <- false;
+	
+	// Flag to indicate if they take a decision for which act they want to go
+	bool decision_taken <- false;
+	
+	// Flag to indicate that guest informed leader
+	bool inform_leader <- false;
+	
+	// Counter for received information
+	int guests_informs_count <- 0;
+	
+	float global_utility_before <- 0.0;
+	float global_utility_after <- 0.0;
+	list<Guest> guests <- [];
 	map<Stage, float> utilities <- [];
 	map<Stage, int> crowd <- [];
+	map<Guest, Stage> guests_preferred_stages <- [];
+	map<Guest, bool> guests_not_crowd <- [];
+	map<pair<Guest, Stage>, float> guests_utilities <- [];
 	
 	
+	map<Guest, Stage> new_preferred_stages <- [];
+	
+	matrix guests_utilities_matrix <- [];
 	
 	init{
 		loop a over: concert_attribs {
 			add rnd(0.5, 1.5) at: a to: weights;
 		}
-		if (name = "Guest0"){
-			leader_flag <- true;
-			write name + " I am the leader!!!";
-		} 
+		
+		if (crowd_mass_enabled) {
+			if (rnd_want_crowd < 0.1){
+				do_not_prefer_crowd <- true;
+			}
+			
+			if (name = "Guest0"){
+				leader_flag <- true;
+				write name + " I am the leader!!!";
+			} 
+		}
 		write name + ": My preferences (weights): " + weights;
 	}
 	
-	reflex goToLeader when: !leader_flag and !canGo and decision_taken and location distance_to(leader.location) > leader_distance_threshold{
-		do goto target: leader.location;
-	}
 	
-	reflex goToMeetingPoint when: leader_flag and !canGo and location distance_to({0,0}) > 0 {
-		do goto target: {0, 0};
-	}
-	
-	reflex informLeader when: !leader_flag and !inform_leader and decision_taken and preferredStage != nil and location distance_to(leader.location) < leader_distance_threshold {
-		// write "I am informing the leader " + leader + ", guest " + self;
-		do start_conversation (to: list(leader), protocol: 'fipa-propose', performative: 'inform', contents: [preferredStage]);
+	reflex informLeader when: crowd_mass_enabled and !leader_flag and !inform_leader and decision_taken and preferredStage != nil {
+		do start_conversation (to: list(leader), protocol: 'fipa-propose', performative: 'inform', contents: [preferredStage, utilities, do_not_prefer_crowd]);
 		inform_leader <- true;
 	}
 	
-	reflex receivePopulations when: !canGo and !leader_flag and inform_leader and !empty(informs){
+	
+	reflex receiveNewActs when: crowd_mass_enabled and !canGo and !leader_flag and inform_leader and !empty(informs){
 		
-		map<Stage, int> map_crowd <- nil;
 		loop msg over: informs {
-			map_crowd <- msg.contents[0];
-			do end_conversation message:msg contents: ['OK'];
-		}
-		
-		loop key over: keys(utilities) {
-
-			if (rnd_want_crowd < 0.1)  {
-				if map_crowd[key] <= 1 {
-					utilities[key] <- utilities[key] + rnd(2.0, 6.0);
-				} else {
-					utilities[key] <- utilities[key] - 4.0;
-				}
+			map<Guest, Stage> new_acts <- msg.contents[0];
+			if (new_acts[self] != nil) {
+				write name + " I m changing act before " + preferredStage + " after: " + new_acts[self];
+				preferredStage <- new_acts[self];
 			}
 		}
-		
-		global_utility_before <- global_utility_before + utilities[preferredStage];
-		
-		float highest_before <- utilities[preferredStage];
-		Stage stage_before <- preferredStage;
-		
-		float highestUtility <- 0.0;
-		loop key over: keys(utilities) {
-			if(utilities[key] > highestUtility){
-				highestUtility <- utilities[key];
-				preferredStage <- key;
-			}
-		}
-		
-		float highest_after <- utilities[preferredStage];
-		
-		if highest_before!=highest_after {
-			write name + " I decided to go to " + preferredStage + "over " + stage_before + " because i don't like the crowd";
-		}
-		
-		if (rnd_want_crowd < 0.2 and map_crowd[preferredStage] = 1 )  {
-			write name + " Ask other guest to change act";
-			ask_him_to_leave <- true;
-			do start_conversation (to: list(Guest), protocol: 'fipa-propose', performative: 'propose', contents: [preferredStage]);
-		}
-		
-		global_utility_after <- global_utility_after + utilities[preferredStage];
 		
 		canGo <- true;
 	}
 	
-	reflex guestsInforms when: leader_flag and !canGo and !empty(informs){
-		loop msg over: informs {
-			guests_informs_count <- guests_informs_count + 1;
-			Stage guest_preferred_stage <- msg.contents[0];
-			crowd[guest_preferred_stage] <- crowd[guest_preferred_stage] + 1;
-			do end_conversation message:msg contents: ['OK'];
+	reflex decideActs when: crowd_mass_enabled and leader_flag and !canGo and leader_must_decide {
+		
+		// Calculate the Global Utility before changes
+		// We add by 1 if the guest does like crowd and there is crowd in the act 
+		// We add by 1 if the guest does not like crowd and there is no crowd in the act 
+		loop g over: guests {
+			Stage preffered <- guests_preferred_stages[g];
+			if (guests_not_crowd[g] and crowd[preffered] <= 2) {
+				global_utility_before <- global_utility_before + guests_utilities[g::preffered] + 1.0;
+			} 
+			else if (guests_not_crowd[g]=false and crowd[preffered] > 2) {
+				global_utility_before <- global_utility_before + guests_utilities[g::preffered] + 1.0;
+			}
+			else {
+				global_utility_before <- global_utility_before + guests_utilities[g::preffered];
+			}
 		}
 		
-		if (guests_informs_count=num_guest-1) {
-			write "Leader: All guests informed me!";
-			loop key over: keys(crowd) {
-				write "Leader: Population at stage " + key + ": " + crowd[key];
+		// find new acts for the anti-social guests
+		loop g over: guests {
+			Stage preffered <- guests_preferred_stages[g];
+			if (guests_not_crowd[g] and crowd[preffered] > 1) {
+				Stage new_preffered <- nil;
+				float highestUtility <- 0.0;
+				loop s over: list(Stage) {
+					if(crowd[s] <= 1 and guests_utilities[g::s] > highestUtility){
+						highestUtility <- guests_utilities[g::s];
+						new_preffered <- s;
+					}
+				}
+				if (new_preffered != nil){
+					crowd[preffered] <- crowd[preffered] - 1;
+					new_preferred_stages[g] <- new_preffered;
+					guests_preferred_stages[g] <- new_preffered;
+					crowd[new_preffered] <- crowd[new_preffered] + 1;
+				} 
 			}
-			do start_conversation(to: list(Guest), protocol: 'fipa-propose', performative: 'inform', contents: [crowd]);
-			canGo <- true;
 		}
+		
+		// special case when only two guests are in an act, one anti-social and one social
+		// social one is sacrificing
+		loop key over: keys(crowd) {
+			
+			if (crowd[key]=2) {
+				bool special_case_not_crowd <- false;
+				bool special_case_crowd <- false;
+				
+				loop g over: guests {
+					if (guests_preferred_stages[g] = key and guests_not_crowd[g]) {
+						special_case_not_crowd <- true;
+					} 
+					else if (guests_preferred_stages[g] = key and guests_not_crowd[g]=false){
+						special_case_crowd <- true;
+					}
+				}
+				
+				if (special_case_not_crowd and special_case_crowd){
+					loop g over: guests {
+						if (guests_preferred_stages[g] = key and guests_not_crowd[g]=false){
+							Stage new_preffered <- nil;
+							float highestUtility <- 0.0;
+							loop s over: list(Stage) {
+								if(crowd[s] > 1 and guests_utilities[g::s] > highestUtility){
+									highestUtility <- guests_utilities[g::s];
+									new_preffered <- s;
+								}
+							}
+							if (new_preffered != nil){
+								crowd[key] <- crowd[key] - 1;
+								new_preferred_stages[g] <- new_preffered;
+								guests_preferred_stages[g] <- new_preffered;
+								crowd[new_preffered] <- crowd[new_preffered] + 1;
+								write "This guest is sacrificing for the common good -> " + g + " before: " + key + " , after: "+ new_preffered;
+							} 
+						}
+					}
+				}
+				
+			}
+		}
+		
+		// Calculate the Global Utility after changes
+		// We add by 1 if the guest does like crowd and there is crowd in the act 
+		// We add by 1 if the guest does not like crowd and there is no crowd in the act 
+		loop g over: guests {
+			Stage preffered <- guests_preferred_stages[g];
+			if (guests_not_crowd[g] and crowd[preffered] <= 2) {
+				global_utility_after <- global_utility_after + guests_utilities[g::preffered] + 1.0;
+			} 
+			else if (guests_not_crowd[g]=false and crowd[preffered] > 2) {
+				global_utility_after <- global_utility_after + guests_utilities[g::preffered] + 1.0;
+			}
+			else {
+				global_utility_after <- global_utility_after + guests_utilities[g::preffered];
+			}
+		}
+		
+		write "Leader: new preffered stages -> " + new_preferred_stages;
+		loop key over: keys(crowd) {
+			write "Leader: Population at stage " + key + ": " + crowd[key];
+		}
+		write "Global Utilities -> Before: " + int(global_utility_before) + " After: " + int(global_utility_after);
+		do start_conversation(to: list(Guest), protocol: 'fipa-propose', performative: 'inform', contents: [new_preferred_stages]);
+		canGo <- true;
+		leader_must_decide <- false;
 		
 	}
 	
-	reflex changeAct when: decision_taken and !empty(proposes){
-		message msg <- proposes at 0;
-		if(msg.contents[0] = preferredStage) {
-			proposed_times <- proposed_times + 1;
-			if proposed_times > 1 {
-				write name + " Nevermind, a received another proposed to leave";
-				global_utility_after <- global_utility_after - utilities[preferredStage];
-				global_utility_after <- global_utility_after + before_value;
-				preferredStage <- before;
+	reflex guestsInforms when: crowd_mass_enabled and leader_flag and !canGo and !empty(informs){
+		loop msg over: informs {
+			add msg.sender to: guests;
+			guests_informs_count <- guests_informs_count + 1;
+			Stage guest_preferred_stage <- msg.contents[0];
+			crowd[guest_preferred_stage] <- crowd[guest_preferred_stage] + 1;
+			guests_preferred_stages[msg.sender] <- guest_preferred_stage;
+			guests_not_crowd[msg.sender] <- bool(msg.contents[2]);
+			do end_conversation message:msg contents: ['OK'];
+			map<Stage, float> guest_utilities <-  msg.contents[1];
+			loop key over: keys(guest_utilities) {
+				guests_utilities[msg.sender::key] <- guest_utilities[key];
 			}
 		}
-		if(msg.contents[0] = preferredStage and length(proposes)=1 and !ask_him_to_leave ){
-			before <- preferredStage;
-			before_value <- utilities[preferredStage];
-			global_utility_after <- global_utility_after - utilities[preferredStage];
-			utilities[preferredStage] <- 0;
-			float highestUtility <- 0.0;
-			loop key over: keys(utilities) {
-				if(utilities[key] > highestUtility){
-					highestUtility <- utilities[key];
-					preferredStage <- key;
-				}
-			}
-			Stage after <- preferredStage;
-			write name + " I m changing act for the common good, before: " + before + " after: " + after;
-			global_utility_after <- global_utility_after + utilities[preferredStage];
+
+		if (guests_informs_count=num_guest-1) {
+			write "Leader: All guests informed me!";
+			leader_must_decide <- true;
 		}
+		
 	}
 	
 	// !canGo
@@ -179,14 +246,17 @@ species Guest skills:[moving, fipa]{
 				canGo <- false;
 				inform_leader <- false;
 				decision_taken <- false;
-				ask_him_to_leave <- false;
-				crowd <- [];
 				utilities <- [];
-				proposed_times <- 0;
-				before <- nil;
 				if (leader_flag) {
 					guests_informs_count <- 0;
-					write "Global Utilities -> Before: " + int(global_utility_before) + " After: " + int(global_utility_after);
+					global_utility_before <- 0.0;
+					global_utility_after <- 0.0;
+					guests <- [];
+					utilities <- [];
+					guests_preferred_stages <- [];
+					crowd <- [];
+					guests_utilities <- [];
+					guests_not_crowd <- [];
 				}
 			}
 			do end_conversation message:endInfo contents: ['OK'];

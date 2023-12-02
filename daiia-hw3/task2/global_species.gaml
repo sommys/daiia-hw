@@ -16,7 +16,7 @@ global{
 	int num_guest <- 30;
 	int num_stage <- 5;
 	
-	int time_concert <- 300;
+	int time_concert <- 100;
 	int time_setup <- 25;
 	int time_countdown <- 50;
 	
@@ -25,18 +25,14 @@ global{
 	float leader_distance_threshold <- 6.0;
 	
 	// boolean variable to enable crowd mass challenge 
-	bool crowd_mass_enabled <- true;
+	bool crowd_mass_enabled <- false;
 	Guest leader <- nil;
-	
-	float global_utility_before <- 0.0;
-	float global_utility_after <- 0.0;
 	
 	list<string> concert_attribs <- ['band', 'songs', 'show', 'light', 'sound', 'visual'];
 	
 	init {
 		create Guest number: num_guest;
 		create Stage number: num_stage;
-		create Entrance number: 1;
 		
 		// initialise the leader
 		if (crowd_mass_enabled){
@@ -45,19 +41,6 @@ global{
 		}
 	}
 }
-species Entrance {
-	
-	init {
-		location <- {50,75};
-	}
-	
-	aspect base {
-		draw square(3.0) color: rgb("blue");
-		string label <- "Entrance";
-		draw label size: 3 color: #white anchor: {0.5,0.5} font: font("Helvetica", 12 , #bold);
-	}
-	
-}
 
 
 experiment festivalStages type: gui{
@@ -65,7 +48,6 @@ experiment festivalStages type: gui{
 		display Festival{
 			species Stage;
 			species Guest;
-			species Entrance;
 		}
 	}
 }
