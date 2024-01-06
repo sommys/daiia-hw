@@ -20,9 +20,9 @@ rules_auctioneer = {
     'English': "Bidders openly compete by placing progressively higher bids.\n"+
                "In case nobody or only one bidder raised in the latest round, send back the winner and the 'END OF AUCTION' message.",
     'Sealed-Bid': "Bidders submit their bids privately in 1 round, highest bid wins.\n"+
-                  "Evalute the bids, send back the winner, highest bid and the 'END OF AUCTION' message.",
+                  "Evaluate the bids, send back the winner, highest bid and the 'END OF AUCTION' message.",
     'Vickrey': "Bidders submit their bids privately in 1 round, highest bid wins, but only pays the second-highest bid.\n"+
-               "Evalute the bids and send back the winner, the highest bid, the price to be paid and the 'END OF AUCTION' message.""",
+               "Evaluate the bids and send back the winner, the highest bid, the price to be paid and the 'END OF AUCTION' message.""",
 }
 
 rules_bidder = {
