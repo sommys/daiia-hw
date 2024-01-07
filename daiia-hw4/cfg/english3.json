@@ -1,0 +1,22 @@
+[
+    {
+        "id": 1,
+        "increment": 15,
+        "limit": 580
+    },
+    {
+        "id": 2,
+        "increment": 55,
+        "limit": 675
+    },
+    {
+        "id": 3,
+        "increment": 30,
+        "limit": 590
+    },
+    {
+        "id": 4,
+        "increment": 52,
+        "limit": 650
+    }
+]
