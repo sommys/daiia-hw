@@ -1,7 +1,8 @@
 # Homework Assignments for ID2209 Distributed Artificial Intelligence and Intelligent Agents course for the 2023 Fall semester
 
 ## Platform
-For all the assignments [GAMA 1.9.2](https://github.com/gama-platform/gama/releases/tag/1.9.2) was used.
+For assignments 1-3 [GAMA 1.9.2](https://github.com/gama-platform/gama/releases/tag/1.9.2) was used.
+For assignment 4 [AutoGen 0.2.3](https://pypi.org/project/pyautogen/0.2.3/) and GPT-4 API was used.
 
 ## Assignment1
 Festival simulation where guests get hungry or thirsty. If they do, they should go to the Information Center to ask for the nearest store that gives them what they need. Afterward, the guests should simply keep doing something until they get hungry/thirsty again.
@@ -23,7 +24,9 @@ Solving the N-Queen problem with the queens being the agents. They can only comm
 ### Task2
 Festival simulation where different stages are available, and the guests decide on which one to visit based on multiple attributes and their preferences (utility function).
 #### Challenge
-TODO
+Create a Leader agent, that is responsible for coordinating the preferences of anti-social and social guests based on their ranking and optimize global utility.
 
 ## Assignment4 (Final Project)
-TBD
+Use AutoGen to implement agent-based Dutch auction using Large Language Models (GPT-4).
+#### Challenge
+Implement English, Sealed-Bid and Vickrey auctions and make the scenarios configurable.
